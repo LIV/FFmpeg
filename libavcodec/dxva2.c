@@ -151,18 +151,18 @@ static int dxva_get_decoder_configuration(AVCodecContext *avctx,
     return best_cfg;
 }
 
-#if CONFIG_D3D11VA
 static int d3d11va_validate_output(void *service, GUID guid, const void *surface_format)
 {
+
     HRESULT hr;
     BOOL is_supported = FALSE;
     hr = ID3D11VideoDevice_CheckVideoDecoderFormat((ID3D11VideoDevice *)service,
                                                    &guid,
                                                    *(DXGI_FORMAT *)surface_format,
                                                    &is_supported);
+    
     return SUCCEEDED(hr) && is_supported;
 }
-#endif
 
 #if CONFIG_DXVA2
 static int dxva2_validate_output(void *decoder_service, GUID guid, const void *surface_format)
@@ -188,6 +188,7 @@ static int dxva2_validate_output(void *decoder_service, GUID guid, const void *s
 
 static int dxva_check_codec_compatibility(AVCodecContext *avctx, const dxva_mode *mode)
 {
+    av_log(avctx, AV_LOG_VERBOSE, "Checking codec compatibility\n");
     if (mode->codec != avctx->codec_id)
             return 0;
 
@@ -195,6 +196,7 @@ static int dxva_check_codec_compatibility(AVCodecContext *avctx, const dxva_mode
         int i, found = 0;
         for (i = 0; mode->profiles[i] != FF_PROFILE_UNKNOWN; i++) {
             if (avctx->profile == mode->profiles[i]) {
+                av_log(avctx, AV_LOG_VERBOSE, "Match found\n");
                 found = 1;
                 break;
             }
@@ -263,8 +265,15 @@ static int dxva_get_decoder_guid(AVCodecContext *avctx, void *service, void *sur
     for (i = 0; dxva_modes[i].guid; i++) {
         const dxva_mode *mode = &dxva_modes[i];
         int validate;
-        if (!dxva_check_codec_compatibility(avctx, mode))
+
+        /*if (!dxva_check_codec_compatibility(avctx, mode)) {
             continue;
+        }
+        else
+        {
+            av_log(avctx, AV_LOG_VERBOSE, "Found compatible codec-mode....\n");
+        }
+            
 
         for (j = 0; j < guid_count; j++) {
             if (IsEqualGUID(mode->guid, &guid_list[j]))
@@ -273,10 +282,9 @@ static int dxva_get_decoder_guid(AVCodecContext *avctx, void *service, void *sur
         if (j == guid_count)
             continue;
 
-#if CONFIG_D3D11VA
         if (sctx->pix_fmt == AV_PIX_FMT_D3D11)
             validate = d3d11va_validate_output(service, *mode->guid, surface_format);
-#endif
+
 #if CONFIG_DXVA2
         if (sctx->pix_fmt == AV_PIX_FMT_DXVA2_VLD)
             validate = dxva2_validate_output(service, *mode->guid, surface_format);
@@ -284,7 +292,13 @@ static int dxva_get_decoder_guid(AVCodecContext *avctx, void *service, void *sur
         if (validate) {
             *decoder_guid = *mode->guid;
             break;
-        }
+        }*/
+    	if(i == 3)
+    	{
+            av_log(avctx, AV_LOG_VERBOSE, "Found h264_e....\n");
+            *decoder_guid = *mode->guid;
+            break;
+    	}
     }
 
     if (IsEqualGUID(decoder_guid, &ff_GUID_NULL)) {
